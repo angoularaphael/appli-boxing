@@ -9,6 +9,15 @@ const ici = dirname(fileURLToPath(import.meta.url));
 test('le demarrage ne demande pas a Android de relancer l activite', () => {
   const layout = readFileSync(join(ici, '../app/_layout.tsx'), 'utf8');
   assert.equal(layout.includes('confierAmbiance'), false);
+  assert.equal(layout.includes("from '@/lib/sentry'"), false);
+  assert.equal(layout.includes("from '@/lib/background'"), false);
+  assert.equal(layout.includes("from 'react-native-reanimated'"), false);
+});
+
+test('la version affichee est 0.1.1 et le numero Android est 2', () => {
+  const app = readFileSync(join(ici, '../../app.json'), 'utf8');
+  assert.match(app, /"version": "0\.1\.1"/);
+  assert.match(app, /"versionCode": 2/);
 });
 
 test('le module natif ignore un mode deja confie, pour ne pas fermer l application', () => {

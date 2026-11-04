@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -105,7 +106,7 @@ export function Screen() {
       ) : null}
 
       <Mono size="caption" tone="dim" style={s.footer}>
-        SAS BOXING CENTER · v0.2
+        SAS BOXING CENTER · {Constants.expoConfig?.version ?? ''} ({Constants.expoConfig?.android?.versionCode ?? ''})
       </Mono>
     </Page>
   );

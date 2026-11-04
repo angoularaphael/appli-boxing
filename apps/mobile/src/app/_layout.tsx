@@ -1,172 +1,102 @@
-import { Sentry } from '@/lib/sentry';
-import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
-import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
-import {
-  Montserrat_400Regular,
-  Montserrat_500Medium,
-  Montserrat_600SemiBold,
-  Montserrat_700Bold,
-  Montserrat_800ExtraBold,
-} from '@expo-google-fonts/montserrat';
-import { useFonts } from 'expo-font';
-import { Stack, usePathname } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import * as SystemUI from 'expo-system-ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Component, useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { Text, View } from 'react-native';
 
-import '@/global.css';
+import { noterEtape } from '@/boot/journal';
 
-import { useBadgeClockTicker } from '@/features/badge/clock';
-import { AppRealtimeRoot } from '@/components/AppRealtimeRoot';
-import { useAdminBootstrap } from '@/lib/admin-bootstrap';
-import { useI18nStore } from '@/i18n';
-import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
-import { configReady } from '@/lib/config';
-import { demanderDroitsAppareil } from '@/lib/droits';
-import '@/lib/background';
-import { ConfigManquante } from '@/screens/ConfigManquante';
-import { usePrefs } from '@/state/prefs';
-import { bootSession, useSession } from '@/state/session';
-import { useUsage } from '@/state/usage';
-import { BootScreen } from '@/ui/BootScreen';
-import { BandeauHorsLigne } from '@/ui/Offline';
-import { useTheme } from '@/ui/theme';
+const BUILD = '0.1.1 (2)';
 
-// L'écran natif reste jusqu'à ce que l'écran de lancement (identique) soit dessiné : c'est lui qui le congédie.
-SplashScreen.preventAutoHideAsync();
-// Sans fondu : l'écran de lancement est identique au pixel près, un fondu ne ferait que ralentir
-// (sur Android, il passe par un transfert de la fenêtre qui expirait sur les téléphones lents, 24/10/2026).
-SplashScreen.setOptions({ fade: false });
+type Etape = {
+  nom: string;
+  charger: () => Promise<unknown>;
+};
 
-/**
- * Quand l'ambiance change (clair ou sombre), l'ancien fond s'efface en 320 ms
- * par-dessus le nouveau : un fondu, pas un clignement.
- */
-function ThemeFade() {
-  const t = useTheme();
-  const reduced = useReducedMotion();
-  const last = useRef(t.bg);
-  const from = useSharedValue(t.bg);
-  const o = useSharedValue(0);
-  useEffect(() => {
-    if (last.current === t.bg) return;
-    from.value = last.current;
-    last.current = t.bg;
-    if (reduced) return;
-    o.value = 1;
-    o.value = withTiming(0, { duration: 320 });
-  }, [t.bg, reduced, from, o]);
-  const style = useAnimatedStyle(() => ({ opacity: o.value, backgroundColor: from.value }));
-  return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]} />;
-}
+const ETAPES: Etape[] = [
+  { nom: 'sentry', charger: () => import('@/lib/sentry') },
+  { nom: 'reanimated', charger: () => import('react-native-reanimated') },
+  { nom: 'gestes', charger: () => import('react-native-gesture-handler') },
+  { nom: 'fond', charger: () => import('@/lib/background') },
+  { nom: 'app', charger: () => import('@/boot/RootLayoutApp') },
+];
 
-/** La mesure d'usage : l'écran vu, l'ouverture de l'app, l'envoi par lots. */
-function useAnalyticsWiring() {
-  const path = usePathname();
-  const t = useTheme();
-  const usageReady = useUsage((s) => s.hydrated);
-  useEffect(() => setAnalyticsScheme(t.scheme), [t.scheme]);
-  useEffect(() => {
-    if (!usageReady) return undefined;
-    useUsage.getState().noteOpen();
-    track('app_open');
-    return startAnalytics();
-  }, [usageReady]);
-  useEffect(() => {
-    if (usageReady && path) trackScreen(path);
-  }, [path, usageReady]);
-}
-
-function RootLayout() {
-  useBadgeClockTicker();
-  useAnalyticsWiring();
-  const t = useTheme();
-  const prefsReady = usePrefs((s) => s.hydrated);
-  const localeReady = useI18nStore((s) => s.hydrated);
-  const clubsReady = useSession((s) => s.clubsHydrated);
-  const auth = useSession((s) => s.auth);
-  const [loaded, error] = useFonts({
-    BebasNeue_400Regular,
-    Montserrat_400Regular,
-    Montserrat_500Medium,
-    Montserrat_600SemiBold,
-    Montserrat_700Bold,
-    Montserrat_800ExtraBold,
-    IBMPlexMono_500Medium,
-  });
-  const ready = (loaded || !!error) && prefsReady && localeReady && clubsReady && (!configReady || auth !== 'chargement');
-  const [booted, setBooted] = useState(false);
-  const onBooted = useCallback(() => setBooted(true), []);
-
-  useEffect(() => {
-    if (configReady) bootSession();
-  }, []);
-
-  useEffect(() => {
-    if (!booted) return;
-    void demanderDroitsAppareil();
-  }, [booted]);
-
-  useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(t.bg);
-  }, [t.bg]);
-
+function Cadre({ etape, erreur }: { etape: string; erreur: string | null }) {
   return (
-    <View style={[styles.fill, { backgroundColor: t.bg }]}>
-      {ready ? (configReady ? <AppTree connecte={auth === 'connecte'} /> : <ConfigManquante />) : null}
-      {booted ? null : <BootScreen ready={ready} onDone={onBooted} />}
+    <View style={{ flex: 1, backgroundColor: '#F4F2EE', padding: 24, justifyContent: 'center' }}>
+      <Text style={{ color: '#20254B', fontSize: 28 }}>Boxing Center {BUILD}</Text>
+      <Text style={{ color: '#20254B', fontSize: 18, marginTop: 16 }}>{erreur ?? etape}</Text>
     </View>
   );
 }
 
-/** L'app elle-même, dessinée sous l'écran de lancement dès que tout est prêt. */
-function AppTree({ connecte }: { connecte: boolean }) {
-  const t = useTheme();
-  useAdminBootstrap();
-  return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.bg }}>
-      <SafeAreaProvider>
-        <AppRealtimeRoot>
-          <StatusBar style={t.statusBar} />
-          <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: t.bg },
-            animation: 'slide_from_right',
-          }}>
-          {/* Tout le monde a un compte pour continuer (Eddy, 30/10/2026) ; sans abonnement, on visite en découverte. */}
-          <Stack.Protected guard={!connecte}>
-            <Stack.Screen name="preface" options={{ animation: 'fade', gestureEnabled: false }} />
-          </Stack.Protected>
-          <Stack.Protected guard={connecte}>
-            <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-            <Stack.Screen name="fil/[id]" />
-            <Stack.Screen name="alertes" />
-            <Stack.Screen name="equipe" />
-            <Stack.Screen name="disciplines" />
-            <Stack.Screen name="combats" />
-            <Stack.Screen name="notifications" />
-            <Stack.Screen name="barre" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="bienvenue" options={{ presentation: 'modal', animation: 'fade', gestureEnabled: false }} />
-          </Stack.Protected>
-          {/* Hors des deux gardes : l'écran reste ouvert quand la session arrive, jusqu'au résultat. */}
-          <Stack.Screen name="connexion" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        </Stack>
-        <ThemeFade />
-        <BandeauHorsLigne />
-        </AppRealtimeRoot>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
-  );
+class Borne extends Component<{ children: ReactNode }, { message: string | null }> {
+  state = { message: null as string | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { message: error.message };
+  }
+
+  render() {
+    if (this.state.message) return <Cadre etape="rendu" erreur={this.state.message} />;
+    return this.props.children;
+  }
 }
 
-export default Sentry.wrap(RootLayout);
+function image(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-});
+/**
+ * Premier ecran, sans splash bloque et sans module natif lourd.
+ * Le dernier mot affiche est l'etape qui ferme l'application.
+ */
+export default function PorteDemarrage() {
+  const [etape, setEtape] = useState('porte');
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [App, setApp] = useState<ComponentType | null>(null);
+
+  useEffect(() => {
+    let vivant = true;
+    void (async () => {
+      await image();
+      try {
+        const SplashScreen = await import('expo-splash-screen');
+        await SplashScreen.hideAsync();
+      } catch {
+        // Le cadre est deja peint.
+      }
+      for (const courante of ETAPES) {
+        if (!vivant) return;
+        setEtape(courante.nom);
+        await noterEtape(courante.nom);
+        await image();
+        try {
+          const module = await courante.charger();
+          if (courante.nom === 'app') {
+            const composant = (module as { default?: ComponentType }).default;
+            if (!composant) throw new Error('RootLayoutApp sans export');
+            if (vivant) setApp(() => composant);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (vivant) setErreur(message);
+          await noterEtape(`${courante.nom} ERREUR ${message}`);
+          return;
+        }
+      }
+    })();
+    return () => {
+      vivant = false;
+    };
+  }, []);
+
+  if (App && !erreur) {
+    return (
+      <Borne>
+        <App />
+      </Borne>
+    );
+  }
+
+  return <Cadre etape={etape} erreur={erreur} />;
+}
