@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 
 import { noterEtape } from '@/boot/journal';
 
-const BUILD = '0.1.1 (2)';
+const BUILD = '0.1.2 (3)';
 
 type Etape = {
   nom: string;

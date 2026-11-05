@@ -2,7 +2,7 @@
   "expo": {
     "name": "Boxing Center",
     "slug": "boxing-center",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "boxingcenter",
@@ -24,7 +24,7 @@
       }
     },
     "android": {
-      "versionCode": 2,
+      "versionCode": 3,
       "package": "fr.boxingcenter.app",
       "adaptiveIcon": {
         "backgroundColor": "#F4F2EE",
@@ -111,6 +111,14 @@
       ],
       "expo-background-task",
       "expo-sharing",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-keep class * extends androidx.room.RoomDatabase { <init>(); }\n-keep class * extends androidx.work.InputMerger { <init>(); }\n"
+          }
+        }
+      ],
       "./plugins/sans-firebase-init.js",
       [
         "@sentry/react-native/expo",

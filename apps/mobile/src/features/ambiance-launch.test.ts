@@ -14,10 +14,12 @@ test('le demarrage ne demande pas a Android de relancer l activite', () => {
   assert.equal(layout.includes("from 'react-native-reanimated'"), false);
 });
 
-test('la version affichee est 0.1.1 et le numero Android est 2', () => {
+test('la version affichee est 0.1.2 et le numero Android est 3', () => {
   const app = readFileSync(join(ici, '../../app.json'), 'utf8');
-  assert.match(app, /"version": "0\.1\.1"/);
-  assert.match(app, /"versionCode": 2/);
+  assert.match(app, /"version": "0\.1\.2"/);
+  assert.match(app, /"versionCode": 3/);
+  assert.match(app, /extends androidx\.room\.RoomDatabase/);
+  assert.match(app, /extends androidx\.work\.InputMerger/);
 });
 
 test('le module natif ignore un mode deja confie, pour ne pas fermer l application', () => {
