@@ -21,6 +21,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import '@/global.css';
 
+import { PRET, noterEtape } from '@/boot/journal';
 import { useBadgeClockTicker } from '@/features/badge/clock';
 import { AppRealtimeRoot } from '@/components/AppRealtimeRoot';
 import { useAdminBootstrap } from '@/lib/admin-bootstrap';
@@ -109,6 +110,8 @@ function RootLayout() {
 
   useEffect(() => {
     if (!booted) return;
+    // L'app est à l'écran : le journal de démarrage le note, le prochain lancement n'aura rien à montrer.
+    void noterEtape(PRET);
     void demanderDroitsAppareil();
   }, [booted]);
 

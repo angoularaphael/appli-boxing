@@ -8,7 +8,7 @@ import { clock, longDate } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { ApiError, lireDocuments, lireFactures } from '@/lib/api';
 import { useAppRealtime } from '@/lib/app-realtime';
-import { DEFAULT_OFFER_SLUG, ouvrirCheckoutBoutique } from '@/lib/checkout-flow';
+import { DEFAULT_OFFER_SLUG, ouvrirCheckoutBoutique, tunnelOuvert } from '@/lib/checkout-flow';
 import { configReady } from '@/lib/config';
 import { selectAcces, useSession } from '@/state/session';
 import type { ClubId } from '@/ui/theme';
@@ -138,6 +138,10 @@ function Corps() {
     if (!configReady || checkoutBusy) return;
     setCheckoutBusy(true);
     try {
+      if (!tunnelOuvert(clubCheckout)) {
+        await Linking.openURL(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }));
+        return;
+      }
       await ouvrirCheckoutBoutique(DEFAULT_OFFER_SLUG, clubCheckout);
       await chargerFactures();
       await recharger();
